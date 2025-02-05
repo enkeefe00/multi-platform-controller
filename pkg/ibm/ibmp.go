@@ -59,7 +59,7 @@ func IBMPowerProvider(platform string, config map[string]string, systemNamespace
 	}
 }
 
-func (r IBMPowerDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.Context, taskRunName string, instanceTag string, _ map[string]string) (cloud.InstanceIdentifier, error) {
+func (r IBMPowerDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.Context, taskRunName string, instancePrefix string, _ map[string]string) (cloud.InstanceIdentifier, error) {
 	service, err := r.authenticatedService(ctx, kubeClient)
 	if err != nil {
 		return "", err
@@ -69,7 +69,7 @@ func (r IBMPowerDynamicConfig) LaunchInstance(kubeClient client.Client, ctx cont
 	if err != nil {
 		return "", err
 	}
-	name := instanceTag + "-" + strings.Replace(strings.ToLower(base64.URLEncoding.EncodeToString(md5.New().Sum(binary))[0:20]), "_", "-", -1) + "x" //#nosec
+	name := instancePrefix + "-" + strings.Replace(strings.ToLower(base64.URLEncoding.EncodeToString(md5.New().Sum(binary))[0:20]), "_", "-", -1) + "x" //#nosec
 	instance, err := r.createServerInstance(ctx, service, name)
 	if err != nil {
 		return "", err
@@ -78,14 +78,14 @@ func (r IBMPowerDynamicConfig) LaunchInstance(kubeClient client.Client, ctx cont
 
 }
 
-func (r IBMPowerDynamicConfig) CountInstances(kubeClient client.Client, ctx context.Context, instanceTag string) (int, error) {
+func (r IBMPowerDynamicConfig) CountInstances(kubeClient client.Client, ctx context.Context, instancePrefix string) (int, error) {
 	instances, err := r.fetchInstances(ctx, kubeClient)
 	if err != nil {
 		return 0, err
 	}
 	count := len(instances.PvmInstances)
 	for _, instance := range instances.PvmInstances {
-		if !strings.HasPrefix(*instance.ServerName, instanceTag) {
+		if !strings.HasPrefix(*instance.ServerName, instancePrefix) {
 			count--
 		}
 	}
@@ -136,9 +136,9 @@ func (r IBMPowerDynamicConfig) GetInstanceAddress(kubeClient client.Client, ctx 
 	return ip, nil
 }
 
-func (r IBMPowerDynamicConfig) ListInstances(kubeClient client.Client, ctx context.Context, instanceTag string) ([]cloud.CloudVMInstance, error) {
+func (r IBMPowerDynamicConfig) ListInstances(kubeClient client.Client, ctx context.Context, instancePrefix string) ([]cloud.CloudVMInstance, error) {
 	log := logr.FromContextOrDiscard(ctx)
-	log.Info("Listing ppc instances", "tag", instanceTag)
+	log.Info("Listing ppc instances", "tag", instancePrefix)
 	instances, err := r.fetchInstances(ctx, kubeClient)
 	if err != nil {
 		return nil, err
@@ -146,7 +146,7 @@ func (r IBMPowerDynamicConfig) ListInstances(kubeClient client.Client, ctx conte
 
 	ret := make([]cloud.CloudVMInstance, 0, len(instances.PvmInstances))
 	for _, instance := range instances.PvmInstances {
-		if !strings.HasPrefix(*instance.ServerName, instanceTag) {
+		if !strings.HasPrefix(*instance.ServerName, instancePrefix) {
 			continue
 		}
 		identifier := cloud.InstanceIdentifier(*instance.PvmInstanceID)

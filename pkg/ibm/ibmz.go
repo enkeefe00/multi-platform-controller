@@ -44,7 +44,7 @@ func IBMZProvider(arch string, config map[string]string, systemNamespace string)
 	}
 }
 
-func (r IBMZDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.Context, taskRunName string, instanceTag string, _ map[string]string) (cloud.InstanceIdentifier, error) {
+func (r IBMZDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.Context, taskRunName string, instancePrefix string, _ map[string]string) (cloud.InstanceIdentifier, error) {
 	vpcService, err := r.authenticatedService(ctx, kubeClient)
 	if err != nil {
 		return "", err
@@ -54,7 +54,7 @@ func (r IBMZDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.
 	if err != nil {
 		return "", err
 	}
-	name := instanceTag + "-" + strings.Replace(strings.ToLower(base64.URLEncoding.EncodeToString(md5.New().Sum(binary))[0:20]), "_", "-", -1) + "x" //#nosec
+	name := instancePrefix + "-" + strings.Replace(strings.ToLower(base64.URLEncoding.EncodeToString(md5.New().Sum(binary))[0:20]), "_", "-", -1) + "x" //#nosec
 
 	vpc, err := r.lookupVpc(vpcService)
 	if err != nil {
@@ -115,7 +115,7 @@ func (r IBMZDynamicConfig) LaunchInstance(kubeClient client.Client, ctx context.
 
 }
 
-func (r IBMZDynamicConfig) CountInstances(kubeClient client.Client, ctx context.Context, instanceTag string) (int, error) {
+func (r IBMZDynamicConfig) CountInstances(kubeClient client.Client, ctx context.Context, instancePrefix string) (int, error) {
 	vpcService, err := r.authenticatedService(ctx, kubeClient)
 	if err != nil {
 		return 0, err
@@ -131,14 +131,14 @@ func (r IBMZDynamicConfig) CountInstances(kubeClient client.Client, ctx context.
 	}
 	count := 0
 	for _, instance := range instances.Instances {
-		if strings.HasPrefix(*instance.Name, instanceTag) {
+		if strings.HasPrefix(*instance.Name, instancePrefix) {
 			count++
 		}
 	}
 	return count, nil
 }
 
-func (r IBMZDynamicConfig) ListInstances(kubeClient client.Client, ctx context.Context, instanceTag string) ([]cloud.CloudVMInstance, error) {
+func (r IBMZDynamicConfig) ListInstances(kubeClient client.Client, ctx context.Context, instancePrefix string) ([]cloud.CloudVMInstance, error) {
 	vpcService, err := r.authenticatedService(ctx, kubeClient)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func (r IBMZDynamicConfig) ListInstances(kubeClient client.Client, ctx context.C
 	ret := []cloud.CloudVMInstance{}
 	log := logr.FromContextOrDiscard(ctx)
 	for _, instance := range instances.Instances {
-		if strings.HasPrefix(*instance.Name, instanceTag) {
+		if strings.HasPrefix(*instance.Name, instancePrefix) {
 			addr, err := r.instanceIP(ctx, &instance, kubeClient)
 			if err != nil {
 				log.Error(err, "not listing instance as address cannot be assigned yet", "instance", *instance.ID)

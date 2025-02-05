@@ -675,6 +675,10 @@ func (r *ReconcileTaskRun) readConfiguration(ctx context.Context, targetPlatform
 			if instanceTag == "" {
 				instanceTag = cm.Data[DefaultInstanceTag]
 			}
+			vmFlavorName := cm.Data["dynamic."+platformConfigName+".instance-type"]
+			if vmFlavorName == "" {
+				vmFlavorName = platformConfigName
+			}
 			timeoutSeconds := cm.Data["dynamic."+platformConfigName+".allocation-timeout"]
 			timeout := int64(600) //default to 10 minutes
 			if timeoutSeconds != "" {
@@ -691,6 +695,7 @@ func (r *ReconcileTaskRun) readConfiguration(ctx context.Context, targetPlatform
 				platform:               platform,
 				maxInstances:           maxInstances,
 				instanceTag:            instanceTag,
+				vmFlavor:               strings.ReplaceAll(vmFlavorName, ".", "-"),
 				timeout:                timeout,
 				sudoCommands:           cm.Data["dynamic."+platformConfigName+".sudo-commands"],
 				additionalInstanceTags: additionalInstanceTags,
@@ -732,6 +737,10 @@ func (r *ReconcileTaskRun) readConfiguration(ctx context.Context, targetPlatform
 			if instanceTag == "" {
 				instanceTag = cm.Data["instance-tag"]
 			}
+			vmFlavorName := cm.Data["dynamic."+platformConfigName+".instance-type"]
+			if vmFlavorName == "" {
+				return nil, errors2.New("no instance type was provided")
+			}
 			ret := DynamicHostPool{
 				cloudProvider:          allocfunc(platformConfigName, cm.Data, r.operatorNamespace),
 				sshSecret:              cm.Data["dynamic."+platformConfigName+".ssh-secret"],
@@ -740,6 +749,7 @@ func (r *ReconcileTaskRun) readConfiguration(ctx context.Context, targetPlatform
 				maxAge:                 time.Minute * time.Duration(maxAge),
 				concurrency:            concurrency,
 				instanceTag:            instanceTag,
+				vmFlavor:               strings.ReplaceAll(vmFlavorName, ".", "-"),
 				additionalInstanceTags: additionalInstanceTags,
 			}
 			r.platformConfig[targetPlatform] = ret

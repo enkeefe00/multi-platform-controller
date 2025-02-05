@@ -22,6 +22,7 @@ type DynamicResolver struct {
 	platform               string
 	maxInstances           int
 	instanceTag            string
+	vmFlavor               string
 	timeout                int64
 	sudoCommands           string
 	additionalInstanceTags map[string]string
@@ -146,14 +147,15 @@ func (r DynamicResolver) Allocate(taskRun *ReconcileTaskRun, ctx context.Context
 		}
 	}
 	//first check this would not exceed the max tasks
-	instanceCount, err := r.CloudProvider.CountInstances(taskRun.client, ctx, r.instanceTag)
+	instancePrefix := r.instanceTag + "_" + r.vmFlavor
+	instanceCount, err := r.CloudProvider.CountInstances(taskRun.client, ctx, instancePrefix)
 	if instanceCount >= r.maxInstances || err != nil {
 		if err != nil {
 			log.Error(err, "unable to count running instances, not launching a new instance out of an abundance of caution")
 			log.Error(err, "Failed to count existing cloud instances")
 			return reconcile.Result{}, err
 		}
-		message := fmt.Sprintf("%d of %d maxInstances running for %s, waiting for existing tasks to finish before provisioning for ", instanceCount, r.maxInstances, r.instanceTag)
+		message := fmt.Sprintf("%d of %d maxInstances running for %s, waiting for existing tasks to finish before provisioning for ", instanceCount, r.maxInstances, instancePrefix)
 		r.eventRecorder.Event(tr, "Warning", "Pending", message)
 		log.Info(message)
 		if tr.Labels[WaitingForPlatformLabel] == platformLabel(r.platform) {
@@ -172,9 +174,9 @@ func (r DynamicResolver) Allocate(taskRun *ReconcileTaskRun, ctx context.Context
 	startTime := time.Now().Unix()
 	tr.Annotations[AllocationStartTimeAnnotation] = strconv.FormatInt(startTime, 10)
 
-	message := fmt.Sprintf("%d instances are running for %s, creating a new instance %s", instanceCount, r.instanceTag, tr.Name)
+	message := fmt.Sprintf("%d instances are running for %s, creating a new instance %s", instanceCount, instancePrefix, tr.Name)
 	r.eventRecorder.Event(tr, "Normal", "Launching", message)
-	instance, err := r.CloudProvider.LaunchInstance(taskRun.client, ctx, tr.Name, r.instanceTag, r.additionalInstanceTags)
+	instance, err := r.CloudProvider.LaunchInstance(taskRun.client, ctx, tr.Name, instancePrefix, r.additionalInstanceTags)
 
 	if err != nil {
 		launchErr := err
@@ -203,7 +205,7 @@ func (r DynamicResolver) Allocate(taskRun *ReconcileTaskRun, ctx context.Context
 
 		return reconcile.Result{RequeueAfter: time.Second * 20}, nil
 	}
-	message = fmt.Sprintf("launched %s instance for %s", r.instanceTag, tr.Name)
+	message = fmt.Sprintf("launched %s instance for %s", instancePrefix, tr.Name)
 	r.eventRecorder.Event(tr, "Normal", "Launched", message)
 
 	//this seems super prone to conflicts
