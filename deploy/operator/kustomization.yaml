@@ -37,3 +37,5 @@ patches:
       name: multi-platform-controller
       kind: Deployment
     path: manager_metrics_patch.yaml
+configurations:
+- kustomize-config.yaml
